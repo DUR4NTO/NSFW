@@ -1,15 +1,14 @@
 const express = require("express");
-const bodyParser = require("body-parser");
 const fs = require("fs-extra");
 const path = require("path");
 const { pipeline } = require("@xenova/transformers");
 
 const app = express();
-app.use(bodyParser.json());
 
-app.post("/generate", async (req, res) => {
-  const { prompt } = req.body;
-  if (!prompt) return res.status(400).json({ error: "Prompt required" });
+// GET /generate?prompt=anime+girl+blue+hair
+app.get("/generate", async (req, res) => {
+  const prompt = req.query.prompt;
+  if (!prompt) return res.status(400).send("❌ Error: 'prompt' query required");
 
   const outputPath = path.join("outputs", Date.now() + "-anime.png");
 
@@ -17,15 +16,15 @@ app.post("/generate", async (req, res) => {
     const pipe = await pipeline("text-to-image", "Xenova/stable-diffusion-anime");
     const image = await pipe(prompt, { width: 512, height: 512 });
 
-    // Save image to outputs
     const buffer = Buffer.from(await image.arrayBuffer());
     await fs.outputFile(outputPath, buffer);
 
-    res.sendFile(path.resolve(outputPath));
+    res.setHeader("Content-Type", "image/png");
+    res.send(buffer); // Direct image response
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).send("❌ Error generating image");
   }
 });
 
-app.listen(3000, () => console.log("Anime Node.js API running on http://localhost:3000"));
+app.listen(3000, () => console.log("Anime Node.js GET API running on http://localhost:3000"));
